@@ -1,9 +1,9 @@
 {
   "name": "Selective_Pet_Protection",
   "version_number": "0.1.0",
-  "website_url": "https://github.com/zebediah49/PetProtection",
-  "description": "Prevent perma-death for tamed animals",
+  "website_url": "https://github.com/MagnusMagnuson/SelectivePetProtection",
+  "description": "Selectively prevent your pets from dying",
   "dependencies": [
-    "denikson-BepInExPack_Valheim-5.4.1901"
+    "denikson-BepInExPack_Valheim-5.4.2202"
   ]
 }
