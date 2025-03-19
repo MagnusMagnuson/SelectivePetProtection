@@ -6,3 +6,6 @@ riderModule.iml
 SelectivePetProtector.sln.DotSettings.user
 .idea
 .vs
+/UpdateManifest.ps1
+/environment.props
+/App.config
