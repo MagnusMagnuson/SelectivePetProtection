@@ -7,7 +7,7 @@ I don't think essential/stunnable actually works (anymore) in PetProtection/V+ s
 # Commands
 To make a pet immortal or stunnable, you simply rename them with the commands **!god** or **!stun** respectively. This will not actually rename the pet, but just add the protection. You can always tell the state of protection by the shield icon after the pets name. By default, gold means immortal, light blue means stunnable. You can change the colors to your liking in the config. Use **!none** to remove protection.
 
-NEW: You can now toggle the protection with the displayed hotkey (Shift + T by default), when you hover your cursor on the pet. 
+**NEW**: You can now toggle the protection with the displayed hotkey (Shift + T by default), when you hover your cursor on the pet. 
 
 ![immortal shield](https://i.imgur.com/efYlWi6.jpeg)
 
@@ -25,5 +25,5 @@ You can change the hotkey to toggle the protection on hover.
 magnus.jpg on the Valheim Modding Discord
 
 # Changelog
-0.2.0 Added a hotkey to toggle the protection on hover
+0.2.0 Added a hotkey to toggle the protection on hover</br>
 0.1.1 Forgot to mention the !none command in the readme
