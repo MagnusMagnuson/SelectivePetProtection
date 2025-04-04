@@ -6,6 +6,7 @@ using BepInEx.Logging;
 using BepInEx.Configuration;
 using System.Xml.Schema;
 using System.Collections.Generic;
+using UnityEngine;
 
 
 namespace SelectivePetProtection
@@ -38,13 +39,13 @@ namespace SelectivePetProtection
     public class SelectivePetProtection : BaseUnityPlugin
     {
         internal const string ModName = "SelectivePetProtection";
-        internal const string ModVersion = "0.1.0";
+        internal const string ModVersion = "0.2.0";
         internal const string Author = "magnus";
         private const string ModGUID = Author + "." + ModName;
         public static float stunRecoveryTime { get; internal set; } = 120f;
         public static string stunShieldColor { get; internal set; } = "#95c9da";
         public static string immortalShieldColor { get; internal set; } = "#d8bf58";
-        internal static ManualLogSource Log;
+        //public static ManualLogSource Log;
 
 
         public static Harmony harmony = new Harmony("mod.selective_pet_protection");
@@ -53,6 +54,8 @@ namespace SelectivePetProtection
         private ConfigEntry<int> stunRecoveryTimeConfig;
         private ConfigEntry<string> stunShieldColorConfig;
         private ConfigEntry<string> immortalShieldColorConfig;
+
+        public static ConfigEntry<KeyboardShortcut> ToggleProtectionShortcut { get; set; }
 
         // Awake is called once when both the game and the plug-in are loaded
         void Awake()
@@ -71,8 +74,56 @@ namespace SelectivePetProtection
             ShieldColors.UpdateColors(stunShieldColorConfig.Value, immortalShieldColorConfig.Value);
 
             harmony.PatchAll();
+
+            ToggleProtectionShortcut = Config.Bind("General", "ToggleProtectionShortcut", new KeyboardShortcut(KeyCode.T, KeyCode.LeftShift), "Toggle the protection of tamed creatures with the shield icon. Press Left Shift + T to toggle.");
+
         }
+
     }
+
+    /// <summary>
+    /// Toggles the shield icon when the player presses the hotkey on a tamed character.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), nameof(Player.UpdateHover))]
+    public static class Player_UpdateHover_Patch
+    {
+        public static void Postfix(ref Player __instance)
+        {
+            if (SelectivePetProtection.ToggleProtectionShortcut.Value.IsDown())
+            {
+                Interactable componentInParent = __instance.m_hovering?.GetComponentInParent<Interactable>();
+                if (componentInParent != null)
+                {
+                    Tameable tameable = ((Tameable)componentInParent).GetComponent<Tameable>();
+                    if (tameable != null)
+                    {
+                        if(tameable.m_character.IsTamed())
+                        {
+                            ZDO zdo = tameable.m_character.m_nview.GetZDO();
+
+                            string tamedName = zdo.GetString(ZDOVars.s_tamedName);
+                            string tamedNameNoTags = tamedName.RemoveRichTextTags().Replace("🛡️", "");
+
+                            if (tamedName.Contains($"<color={ShieldColors.Colors[ShieldState.Stun]}>🛡️"))
+                            {
+                                zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags + $"<color={ShieldColors.Colors[ShieldState.Immortal]}>🛡️</color>");
+                            }
+                            else if (tamedName.Contains($"<color={ShieldColors.Colors[ShieldState.Immortal]}>🛡️"))
+                            {
+                                zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags);
+                            }
+                            else
+                            {
+                                zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags + $"<color={ShieldColors.Colors[ShieldState.Stun]}>🛡️</color>");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
 
     /// <summary>
     /// Adds the shield icon to the tamed creature's name when the player names it "god". Otherwise executes the original method.
@@ -102,7 +153,7 @@ namespace SelectivePetProtection
             }
             return true;
         }
-    }
+    }    
 
     /// <summary>
     /// Temporarily removes the shield icon from the renamne window.
@@ -267,6 +318,9 @@ namespace SelectivePetProtection
         public static void Postfix(Tameable __instance, ref string __result)
         {
             Tameable tameable = __instance;
+
+            if(tameable.m_character.IsTamed())
+                __result += "\n[<color=yellow><b>Shift + T</b></color>] Toggle Protection";
 
             // If tamed creature is recovering from a stun, then add Stunned to hover text.
             if (tameable.m_character.m_nview.GetZDO().GetBool("isRecoveringFromStun"))
