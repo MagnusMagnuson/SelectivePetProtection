@@ -101,6 +101,9 @@
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(GamePath)\valheim_Data\Managed\Unity.TextMeshPro.dll</HintPath>
     </Reference>
+    <Reference Include="VikingNPC_publicized">
+      <HintPath>..\publicized_assemblies\VikingNPC_publicized.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SelectivePetProtection.cs" />

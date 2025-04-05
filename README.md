@@ -12,18 +12,23 @@ To make a pet immortal or stunnable, you simply rename them with the commands **
 ![immortal shield](https://i.imgur.com/efYlWi6.jpeg)
 
 # Configuration
-You can change the shield color for !god and !stun.
+You can change the shield color for immortal and stunnable.
 You can set the time a pet will be stunned for.
 You can change the hotkey to toggle the protection on hover.
+
+# Compatibility
+Partial support for [VikingNPC](https://thunderstore.io/c/valheim/p/RustyMods/VikingNPC/). Only toggling via the hotkey (default is Left Shift + T) works. The hotkey tooltip will not show up when you hover over a tamed Viking, but it will still work, apparent by the shield icon. When your Viking is stunned it will also not say "Recovering" when you hover, but it is indeed recovering in the background.
 
 # Known Issues
 
  - When a pet is stunned and there is no other valid target around, the attacker will keep attacking the stunned pet. This has no effects on the pet, but rather than the attacker roaming around, he will be fixated on the pet. This might be somewhat of a fringe case, since usually a player will be around.
  - When stunned, pets might be locked in their current animation und they recovered
+ - Non-physical damage can unstun pets.
 
 # Contact
 magnus.jpg on the Valheim Modding Discord
 
 # Changelog
+0.2.1 Partial support for [VikingNPC](https://thunderstore.io/c/valheim/p/RustyMods/VikingNPC/). 
 0.2.0 Added a hotkey to toggle the protection on hover</br>
 0.1.1 Forgot to mention the !none command in the readme

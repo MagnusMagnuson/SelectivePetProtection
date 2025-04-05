@@ -7,6 +7,12 @@ using BepInEx.Configuration;
 using System.Xml.Schema;
 using System.Collections.Generic;
 using UnityEngine;
+using BepInEx.Bootstrap;
+using Settlers.Behaviors;
+using static Settlers.Behaviors.Companion;
+using System.Linq.Expressions;
+using System.Linq;
+using System.Reflection;
 
 
 namespace SelectivePetProtection
@@ -34,18 +40,21 @@ namespace SelectivePetProtection
             Colors[ShieldState.Immortal] = immortalColor;
         }
     }
-
+    [BepInDependency("RustyMods.VikingNPC", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(ModGUID, ModName, ModVersion)]
     public class SelectivePetProtection : BaseUnityPlugin
     {
         internal const string ModName = "SelectivePetProtection";
-        internal const string ModVersion = "0.2.0";
+        internal const string ModVersion = "0.2.1";
         internal const string Author = "magnus";
         private const string ModGUID = Author + "." + ModName;
         public static float stunRecoveryTime { get; internal set; } = 120f;
         public static string stunShieldColor { get; internal set; } = "#95c9da";
         public static string immortalShieldColor { get; internal set; } = "#d8bf58";
-        //public static ManualLogSource Log;
+        public static ManualLogSource Log;
+
+        public static bool isVikingNPCLoaded = false;
+        BaseUnityPlugin vikingNPCPlugin;
 
 
         public static Harmony harmony = new Harmony("mod.selective_pet_protection");
@@ -56,6 +65,24 @@ namespace SelectivePetProtection
         private ConfigEntry<string> immortalShieldColorConfig;
 
         public static ConfigEntry<KeyboardShortcut> ToggleProtectionShortcut { get; set; }
+
+
+        private void Start()
+        {
+            Log = base.Logger;
+            foreach (var kvp in Chainloader.PluginInfos)
+            {
+                if (kvp.Key == "RustyMods.VikingNPC")
+                {
+                    SelectivePetProtection.Log.LogWarning("VikingNPC is loaded");
+                    isVikingNPCLoaded = true;
+                    vikingNPCPlugin = kvp.Value.Instance;
+                    //ModConfig.SetShareSuiteReference(kvp.Value.Instance);
+                    break;
+                }
+            }
+        }
+
 
         // Awake is called once when both the game and the plug-in are loaded
         void Awake()
@@ -84,7 +111,7 @@ namespace SelectivePetProtection
     /// <summary>
     /// Toggles the shield icon when the player presses the hotkey on a tamed character.
     /// </summary>
-    [HarmonyPatch(typeof(Player), nameof(Player.UpdateHover))]
+    [HarmonyPatch(typeof(Player), nameof(Player.UpdateHover))] 
     public static class Player_UpdateHover_Patch
     {
         public static void Postfix(ref Player __instance)
@@ -94,29 +121,29 @@ namespace SelectivePetProtection
                 Interactable componentInParent = __instance.m_hovering?.GetComponentInParent<Interactable>();
                 if (componentInParent != null)
                 {
-                    Tameable tameable = ((Tameable)componentInParent).GetComponent<Tameable>();
-                    if (tameable != null)
+                    GameObject hoveringObject = __instance.m_hovering.gameObject;
+                    Character tame = hoveringObject.GetComponentInParent<Character>();
+
+                    if (tame != null && tame.IsTamed())
                     {
-                        if(tameable.m_character.IsTamed())
+                        ZDO zdo = tame.m_nview.GetZDO();
+                        string tamedName = zdo.GetString(ZDOVars.s_tamedName);
+                        string tamedNameNoTags = tamedName.RemoveRichTextTags().Replace("🛡️", "");
+
+                        if (tamedName.Contains($"<color={ShieldColors.Colors[ShieldState.Stun]}>🛡️"))
                         {
-                            ZDO zdo = tameable.m_character.m_nview.GetZDO();
-
-                            string tamedName = zdo.GetString(ZDOVars.s_tamedName);
-                            string tamedNameNoTags = tamedName.RemoveRichTextTags().Replace("🛡️", "");
-
-                            if (tamedName.Contains($"<color={ShieldColors.Colors[ShieldState.Stun]}>🛡️"))
-                            {
-                                zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags + $"<color={ShieldColors.Colors[ShieldState.Immortal]}>🛡️</color>");
-                            }
-                            else if (tamedName.Contains($"<color={ShieldColors.Colors[ShieldState.Immortal]}>🛡️"))
-                            {
-                                zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags);
-                            }
-                            else
-                            {
-                                zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags + $"<color={ShieldColors.Colors[ShieldState.Stun]}>🛡️</color>");
-                            }
+                            zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags + $"<color={ShieldColors.Colors[ShieldState.Immortal]}>🛡️</color>");
                         }
+                        else if (tamedName.Contains($"<color={ShieldColors.Colors[ShieldState.Immortal]}>🛡️"))
+                        {
+                            zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags);
+                        }
+                        else
+                        {
+                            zdo.Set(ZDOVars.s_tamedName, tamedNameNoTags + $"<color={ShieldColors.Colors[ShieldState.Stun]}>🛡️</color>");
+                        }
+                        tame.m_name = zdo.GetString(ZDOVars.s_tamedName);
+
                     }
                 }
             }
@@ -195,20 +222,19 @@ namespace SelectivePetProtection
     /// <summary>
     /// Determines what happens when a tamed creature takes damage.
     /// </summary>
+    [HarmonyPriority(Priority.Last)]
     [HarmonyPatch(typeof(Character), nameof(Character.ApplyDamage))]
-    public static class Character_Damage_Patch
+    public static class Character_ApplyDamage_Patch
     {
         public static void Postfix(ref Character __instance, ref HitData hit, ref bool showDamageText, ref bool triggerEffects, ref HitData.DamageModifier mod)
         {
             // Network & Tameable component
             ZDO zdo = __instance.m_nview.GetZDO();
-            Tameable tamed = __instance.GetComponent<Tameable>();
             string tamedName = zdo.GetString(ZDOVars.s_tamedName);
 
-            // Is tamed, has network, has valid hit data, tamed component is present.
-            if (!__instance.IsTamed() || zdo == null || tamed == null)
+            if (!__instance.IsTamed() || zdo == null)
                 return;
-
+            
             if (tamedName.Contains("🛡️"))
             {  
                 // if killed on this hit
@@ -230,13 +256,15 @@ namespace SelectivePetProtection
                             __instance.GetComponent<MonsterAI>().SetAlerted(false);
                             __instance.m_disableWhileSleeping = true;
                             __instance.GetComponent<MonsterAI>().m_nview.GetZDO().Set(ZDOVars.s_sleeping, value: true);
-                            if (__instance.GetComponent<MonsterAI>().m_character.m_moveDir != Vector3.zero)
-                                __instance.GetComponent<MonsterAI>().StopMoving();
+                            //if (__instance.GetComponent<MonsterAI>().m_character.m_moveDir != Vector3.zero)
+                            //    __instance.GetComponent<MonsterAI>().StopMoving();
+
                             //__instance.GetComponent<MonsterAI>().SetAggravated(false, BaseAI.AggravatedReason.Theif);
                             //__instance.m_baseAI.m_alerted = false;
                             //__instance.m_baseAI.m_aggravated = false;
                             //__instance.m_baseAI.m_passiveAggresive = false;
                             //__instance.m_baseAI.m_nview.GetZDO().Set(ZDOVars.s_alert, false);
+
                         } 
                         else
                         {
@@ -266,6 +294,24 @@ namespace SelectivePetProtection
         }
     }
 
+
+    //[HarmonyPatch(typeof(TameableCompanion), nameof(TameableCompanion.GetStatus))]
+    //public static class TameableCompanion_GetStatus_Patch
+    //{
+    //    public static void Postfix(ref TameableCompanion __instance, ref string __result)
+    //    {
+    //        SelectivePetProtection.Log.LogWarning("in getstatus postfix");
+    //        if (__instance.m_companion.IsTamed())
+    //        {
+    //            ZDO zdo = __instance.m_nview.GetZDO();
+    //            if(zdo.GetBool("isRecoveringFromStun"))
+    //            {
+    //                __result = "Recovering";
+    //            }
+    //        }
+    //    }
+    //}
+
     /// <summary>
     /// Forces a tamed creature to stay asleep if it's recovering from being stunned.
     /// </summary>
@@ -274,8 +320,8 @@ namespace SelectivePetProtection
     {
         public static bool Prefix(MonsterAI __instance, ref float dt)
         {
-            Tameable tamed = __instance.GetComponent<Tameable>();
-            if (tamed == null)
+
+            if (!__instance.m_character.IsTamed())
                 return true;
 
             MonsterAI monsterAI = __instance;
@@ -283,8 +329,8 @@ namespace SelectivePetProtection
             if (zdo == null || !zdo.GetBool("isRecoveringFromStun"))
                 return true;
 
-            if (monsterAI.m_character.m_moveDir != Vector3.zero)
-                monsterAI.StopMoving();
+            //if (monsterAI.m_character.m_moveDir != Vector3.zero)
+            //    monsterAI.StopMoving();
 
             if (monsterAI.m_sleepTimer != 0f)
                 monsterAI.m_sleepTimer = 0f;
@@ -301,6 +347,13 @@ namespace SelectivePetProtection
 
                 zdo.Set("isRecoveringFromStun", false);
                 monsterAI.Wakeup();
+
+                //if (SelectivePetProtection.isVikingNPCLoaded)
+                //{
+                //    SelectivePetProtection.Log.LogWarning("in viking npc patch: " + __instance.m_character.GetComponent<TameableCompanion>());
+                //    __instance.m_character.GetComponent<TameableCompanion>().m_companionAI.m_resting = false;
+                //    __instance.m_character.GetComponent<TameableCompanion>().m_companionAI.
+                //}
             }
 
             dt = 0f;
@@ -325,6 +378,12 @@ namespace SelectivePetProtection
             // If tamed creature is recovering from a stun, then add Stunned to hover text.
             if (tameable.m_character.m_nview.GetZDO().GetBool("isRecoveringFromStun"))
                 __result = __result.Insert(__result.IndexOf(" )"), ", Recovering");
+
         }
     }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    //[HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake))]
 }
