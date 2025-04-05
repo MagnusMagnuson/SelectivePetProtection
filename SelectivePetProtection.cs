@@ -74,7 +74,7 @@ namespace SelectivePetProtection
             {
                 if (kvp.Key == "RustyMods.VikingNPC")
                 {
-                    SelectivePetProtection.Log.LogWarning("VikingNPC is loaded");
+                    //SelectivePetProtection.Log.LogWarning("VikingNPC is loaded");
                     isVikingNPCLoaded = true;
                     vikingNPCPlugin = kvp.Value.Instance;
                     //ModConfig.SetShareSuiteReference(kvp.Value.Instance);
