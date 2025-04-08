@@ -13,6 +13,7 @@ using static Settlers.Behaviors.Companion;
 using System.Linq.Expressions;
 using System.Linq;
 using System.Reflection;
+using TMPro;
 
 
 namespace SelectivePetProtection
@@ -45,7 +46,7 @@ namespace SelectivePetProtection
     public class SelectivePetProtection : BaseUnityPlugin
     {
         internal const string ModName = "SelectivePetProtection";
-        internal const string ModVersion = "0.2.1";
+        internal const string ModVersion = "0.2.2";
         internal const string Author = "magnus";
         private const string ModGUID = Author + "." + ModName;
         public static float stunRecoveryTime { get; internal set; } = 120f;
@@ -160,6 +161,10 @@ namespace SelectivePetProtection
     {
         public static bool Prefix(ref Tameable __instance, ref string name)
         {
+            if (__instance.m_character == null)
+            {
+                return true;
+            }
             ZDO zdo = __instance.m_character.m_nview.GetZDO();
             string tamedName = zdo.GetString(ZDOVars.s_tamedName);
             string tamedNameNoTags = tamedName.RemoveRichTextTags().Replace("🛡️", "");
@@ -190,6 +195,10 @@ namespace SelectivePetProtection
     {
         public static bool Prefix(ref Tameable __instance)
         {
+            if (__instance.m_character == null)
+            {
+                return true;
+            }
             ZDO zdo = __instance.m_character.m_nview.GetZDO();
             string tamedName = zdo.GetString(ZDOVars.s_tamedName);
 
@@ -211,11 +220,15 @@ namespace SelectivePetProtection
     {
         public static void Postfix(ref Tameable __instance, ref string __result)
         {
-            ZDO zdo = __instance.m_character.m_nview.GetZDO();
-            string tamedName = zdo.GetString(ZDOVars.s_tamedName); 
+            if(__instance.m_character)
+            {
+                ZDO zdo = __instance.m_character.m_nview.GetZDO();
+                string tamedName = zdo.GetString(ZDOVars.s_tamedName);
 
-            if (tamedName.Contains("🛡️</color>"))
-                __result = tamedName;
+                if (tamedName.Contains("🛡️</color>"))
+                    __result = tamedName;
+            }
+
         }
     }
 
@@ -371,19 +384,17 @@ namespace SelectivePetProtection
         public static void Postfix(Tameable __instance, ref string __result)
         {
             Tameable tameable = __instance;
+            if (tameable.m_character)
+            {
+                if (tameable.m_character.IsTamed())
+                    __result += "\n[<color=yellow><b>Shift + T</b></color>] Toggle Protection";
 
-            if(tameable.m_character.IsTamed())
-                __result += "\n[<color=yellow><b>Shift + T</b></color>] Toggle Protection";
-
-            // If tamed creature is recovering from a stun, then add Stunned to hover text.
-            if (tameable.m_character.m_nview.GetZDO().GetBool("isRecoveringFromStun"))
-                __result = __result.Insert(__result.IndexOf(" )"), ", Recovering");
+                // If tamed creature is recovering from a stun, then add Stunned to hover text.
+                if (tameable.m_character.m_nview.GetZDO().GetBool("isRecoveringFromStun"))
+                    __result = __result.Insert(__result.IndexOf(" )"), ", Recovering");
+            }
 
         }
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    //[HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake))]
 }

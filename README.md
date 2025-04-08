@@ -29,6 +29,7 @@ Partial support for [VikingNPC](https://thunderstore.io/c/valheim/p/RustyMods/Vi
 magnus.jpg on the Valheim Modding Discord
 
 # Changelog
+0.2.2 Fixed a Prefix NRE when a Tameable didn't have a Character component (e.g. HardRock)</br>
 0.2.1 Partial support for [VikingNPC](https://thunderstore.io/c/valheim/p/RustyMods/VikingNPC/).</br>
 0.2.0 Added a hotkey to toggle the protection on hover</br>
 0.1.1 Forgot to mention the !none command in the readme
